@@ -1,0 +1,150 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  # Build and verify all packages without publishing a release.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  version:
+    name: Validate release version
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check tag against Cargo.toml
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: |
+          python3 - <<'PY'
+          import os, re, tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path('Cargo.toml').read_text())['package']['version']
+          if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?', version):
+              raise SystemExit('Release versions must be X.Y.Z or X.Y.Z-prerelease')
+          tag = f'v{version}'
+          if os.environ['RELEASE_TAG'] and os.environ['RELEASE_TAG'] != tag:
+              raise SystemExit(f'Tag must match Cargo.toml: expected {tag}')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'tag={tag}\nprerelease={str("-" in version).lower()}\n')
+          PY
+
+  build:
+    name: Package (${{ matrix.target }})
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: macOS-arm64
+          - os: macos-15-intel
+            target: macOS-x86_64
+          - os: ubuntu-24.04
+            target: Linux-x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      RELEASE_TAG: ${{ needs.version.outputs.tag }}
+      PACKAGE_TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Linux runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2t64 libfontconfig1 libwayland-client0 \
+            libwebkit2gtk-4.1-0 libxkbcommon-x11-0 libx11-xcb1 libssl3t64 libzstd1 libvulkan1
+      - name: Check and test
+        run: |
+          cargo fmt --all --check
+          cargo clippy --all-targets --locked -- -D warnings
+          cargo test --all-features --locked
+          node --test tests/model.test.mjs
+      - name: Build standalone package
+        run: python3 scripts/package.py
+      - name: Verify and archive package
+        run: |
+          mkdir -p release-assets
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            codesign --verify --deep --strict dist/Projj.app
+            dist/Projj.app/Contents/Resources/app/bin/projj --version
+            ditto -c -k --keepParent dist/Projj.app "release-assets/Projj-${RELEASE_TAG}-${PACKAGE_TARGET}.zip"
+          else
+            dist/projj-desktop/app/bin/projj --version
+            tar -czf "release-assets/Projj-${RELEASE_TAG}-${PACKAGE_TARGET}.tar.gz" -C dist projj-desktop
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub Release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [version, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.version.outputs.tag }}
+      PRERELEASE: ${{ needs.version.outputs.prerelease }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-assets
+      - name: Verify assets and write checksums
+        working-directory: release-assets
+        run: |
+          assets=(
+            "Projj-${RELEASE_TAG}-macOS-arm64.zip"
+            "Projj-${RELEASE_TAG}-macOS-x86_64.zip"
+            "Projj-${RELEASE_TAG}-Linux-x86_64.tar.gz"
+          )
+          for asset in "${assets[@]}"; do
+            test -s "$asset"
+          done
+          sha256sum "${assets[@]}" > SHA256SUMS
+          sha256sum --check SHA256SUMS
+      - name: Publish release with generated notes
+        run: |
+          flags=(--verify-tag --generate-notes --title "Projj ${RELEASE_TAG}")
+          if [[ "$PRERELEASE" == "true" ]]; then
+            flags+=(--prerelease --latest=false)
+          fi
+          gh release create "$RELEASE_TAG" release-assets/* "${flags[@]}"

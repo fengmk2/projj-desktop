@@ -23,6 +23,26 @@ python3 scripts/package.py
 
 On macOS, open `dist/Projj.app` or copy it to `~/Applications`. On Linux, run `dist/projj-desktop/projj-desktop`. The bundle includes the runtime, scripts, Rust backend, and full `projj` CLI. Git and any tools your tasks use remain system dependencies. The macOS build uses an ad-hoc signature; distribution with a Developer ID and notarization requires your own Apple signing credentials.
 
+## Releases
+
+The [Release workflow](.github/workflows/release.yml) publishes a GitHub Release when a `v*` tag is pushed. The tag must match the package version in `Cargo.toml`. For example, with version `0.1.0`:
+
+```sh
+git tag -a v0.1.0 -m "Release v0.1.0"
+git push origin v0.1.0
+```
+
+For a new version, update `Cargo.toml`, run `cargo check` to update `Cargo.lock`, and commit both files before tagging. Packaging reads the Cargo version for the CLI, app manifest, and macOS bundle metadata. Tags such as `v0.2.0-rc.1` create prereleases.
+
+The workflow tests and builds on each target before publishing:
+
+- `Projj-vX.Y.Z-macOS-arm64.zip`
+- `Projj-vX.Y.Z-macOS-x86_64.zip`
+- `Projj-vX.Y.Z-Linux-x86_64.tar.gz`
+- `SHA256SUMS`
+
+Release notes are generated automatically. The workflow uses the repository's `GITHUB_TOKEN`; no additional publishing secret is required. macOS packages use ad-hoc signing. Select **Run workflow** in GitHub Actions for a build-only check: it uploads workflow artifacts and does not create a release.
+
 ## Features
 
 | Projj command or feature | Desktop access |
