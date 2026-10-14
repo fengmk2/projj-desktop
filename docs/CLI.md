@@ -282,11 +282,9 @@ Output example:
 
 Colors by size: green (<100M), yellow (100M–1G), red (>1G). Respects `NO_COLOR`. In the ignored breakdown, a trailing 📂 marks a bucket where only some files inside the top-level directory are ignored (e.g. `skills📂` means "part of `skills/`"), while a bare name like `target` means the whole directory is ignored.
 
-> **Deprecated**: the previous name `repo-status` still works but prints a warning to stderr and delegates to `status`. It will be removed in a future release — please switch to `projj run status`.
-
 #### clean
 
-Removes git-ignored top-level directories (`target/`, `node_modules/`, `dist/`, ...) — the natural follow-up to `repo-status -- --detail`. Only ever touches paths reported by `git ls-files --others --ignored --exclude-standard --directory`, so untracked new files and tracked changes are never at risk.
+Removes git-ignored top-level directories (`target/`, `node_modules/`, `dist/`, ...) — the natural follow-up to `projj run status -- --detail`. Only ever touches paths reported by `git ls-files --others --ignored --exclude-standard --directory`, so untracked new files and tracked changes are never at risk.
 
 ```bash
 projj run clean                                  # dry-run: list all ignored top-level dirs

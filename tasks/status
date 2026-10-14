@@ -1,6 +1,6 @@
 #!/bin/bash
 # Show repo disk usage, git status, and ignored files summary
-# Usage: repo-status [--fast]  (skip ignored files scan)
+# Usage: projj run status [-- --detail]  (include ignored files breakdown)
 
 # Colors (respect NO_COLOR)
 if [ -z "$NO_COLOR" ]; then

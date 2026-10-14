@@ -93,13 +93,13 @@ gh workflow run homebrew.yml --repo fengmk2/projj-desktop -f tag=v1.0.0
 
 | Projj command or feature | Desktop access |
 | --- | --- |
-| `init` | First-run setup creates configuration and installs all five built-in tasks without replacing existing files. |
+| `init` | First-run setup creates configuration and installs all four built-in tasks without replacing existing files. |
 | `add` | Add repository accepts short names, HTTPS, SSH with ports, and local paths. Choose a base directory and preview the destination. Existing destinations skip hooks. |
 | `find` / `list` | Search by repository, owner, or host; exact names rank first. Filter by host and base directory, copy paths, inspect Git status, and open a folder or terminal. The list is virtualized. |
 | `remove` | Select a repository and type its full `owner/repo` name to confirm permanent deletion. Both removal hook events run. |
 | `run` | Run inline tasks, executable scripts, or raw commands in the selected repository, a custom directory, or all repositories. Apply a regex filter and pass quoted arguments. |
 | Interactive tasks | **Run in Terminal** supports prompts, including per-directory cleanup confirmation. Background runs have captured logs and a Stop button. |
-| Built-in tasks | `status`, `clean`, `zoxide`, `git-config-user`, and the deprecated `repo-status` alias are included. `status --detail` reports ignored files; `clean` previews first and supports filtered or confirmed cleanup. |
+| Built-in tasks | `status`, `clean`, `zoxide`, and `git-config-user` are included. `status --detail` reports ignored files; `clean` previews first and supports filtered or confirmed cleanup. |
 | Hooks | Automation shows `pre_add`, `post_add`, `pre_remove`, and `post_remove`. Edit regex matchers, ordered task lists, and custom environment variables in Settings. Hooks receive the original `PROJJ_*` variables and JSON on stdin. |
 | Configuration | Edit the shared TOML, including multiple base directories, default host, tasks, and hooks. Saves validate the file and reject changes if another program edited it in the meantime. Comments are preserved. |
 | Task scripts | Create and edit executable files under `~/.projj/tasks` from Tasks & activity. Inline tasks still take precedence. |
