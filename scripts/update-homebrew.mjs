@@ -66,7 +66,7 @@ export async function updateHomebrew(tag) {
   if (release.tag_name !== tag) throw new Error("Release response does not match the requested tag");
   const version = releaseVersion(release);
   const checksums = await (await download(`https://github.com/${repository}/releases/download/v${version}/SHA256SUMS`)).text();
-  const cask = new URL("../Casks/projj.rb", import.meta.url);
+  const cask = new URL("../Casks/app.rb", import.meta.url);
   const current = readFileSync(cask, "utf8");
   const updated = updateCask(current, release, checksums);
   if (updated !== current) writeFileSync(cask, updated);
