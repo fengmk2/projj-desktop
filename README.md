@@ -18,7 +18,7 @@ On macOS 12 or later, with Apple silicon or Intel:
 
 ```sh
 brew tap fengmk2/projj-desktop https://github.com/fengmk2/projj-desktop.git
-brew install --cask fengmk2/projj-desktop/projj-desktop
+brew install --cask fengmk2/projj-desktop/projj
 ```
 
 The `fengmk2/projj-desktop` tap is hosted in this repository.
@@ -29,10 +29,10 @@ To update:
 
 ```sh
 brew update
-brew upgrade --cask fengmk2/projj-desktop/projj-desktop
+brew upgrade --cask fengmk2/projj-desktop/projj
 ```
 
-To uninstall, run `brew uninstall --cask fengmk2/projj-desktop/projj-desktop`. Your `~/.projj` configuration and repositories are preserved. The cask is maintained in [`Casks/projj-desktop.rb`](Casks/projj-desktop.rb).
+To uninstall, run `brew uninstall --cask fengmk2/projj-desktop/projj`. Your `~/.projj` configuration and repositories are preserved. The cask is maintained in [`Casks/projj.rb`](Casks/projj.rb).
 
 ### Release downloads
 

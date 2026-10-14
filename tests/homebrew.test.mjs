@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { releaseVersion, updateCask, updateHomebrew } from "../scripts/update-homebrew.mjs";
 
-const current = readFileSync(new URL("../Casks/projj-desktop.rb", import.meta.url), "utf8")
+const current = readFileSync(new URL("../Casks/projj.rb", import.meta.url), "utf8")
   .replace(/^  version "[^"]+"$/m, '  version "0.0.0"');
 
 function fixture(version = "0.1.0") {

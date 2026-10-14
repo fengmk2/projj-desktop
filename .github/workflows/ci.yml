@@ -66,14 +66,14 @@ jobs:
       - name: Install from this repository
         run: |
           brew tap fengmk2/projj-desktop "$GITHUB_WORKSPACE"
-          brew install --cask fengmk2/projj-desktop/projj-desktop
+          brew install --cask fengmk2/projj-desktop/projj
           test "$(git -C "$(brew --repository fengmk2/projj-desktop)" rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Verify the cask and installation
         run: |
-          brew style --cask fengmk2/projj-desktop/projj-desktop
-          brew audit --cask fengmk2/projj-desktop/projj-desktop
+          brew style --cask fengmk2/projj-desktop/projj
+          brew audit --cask fengmk2/projj-desktop/projj
           test -d /Applications/Projj.app
           codesign --verify --deep --strict /Applications/Projj.app
           "$(brew --prefix)/bin/projj" --version
       - name: Uninstall
-        run: brew uninstall --cask fengmk2/projj-desktop/projj-desktop
+        run: brew uninstall --cask fengmk2/projj-desktop/projj

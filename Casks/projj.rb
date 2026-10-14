@@ -1,4 +1,4 @@
-cask "projj-desktop" do
+cask "projj" do
   arch arm: "arm64", intel: "x86_64"
 
   version "0.0.0"
