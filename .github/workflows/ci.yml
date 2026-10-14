@@ -65,8 +65,6 @@ jobs:
           fetch-depth: 0
       - name: Install from an independent tap checkout
         run: |
-          # A pull request checkout has a detached HEAD; Homebrew needs a default branch.
-          git switch --create homebrew-ci
           # Model the former tap without depending on its archived GitHub repository.
           legacy_tap="$RUNNER_TEMP/legacy-tap"
           mkdir -p "$legacy_tap/Casks"
@@ -76,20 +74,22 @@ jobs:
           git -C "$legacy_tap" -c user.name=CI -c user.email=ci@example.com commit -m 'Legacy tap fixture'
           brew tap fengmk2/tap "$legacy_tap"
           brew install --cask fengmk2/tap/projj-desktop
-          stat -f '%i' /Applications/Projj.app > "$RUNNER_TEMP/projj-inode"
-      - name: Migrate to this repository without reinstalling
+          mkdir -p ~/.projj
+          touch ~/.projj/homebrew-migration-test
+      - name: Migrate to the dedicated tap
         run: |
-          brew tap --custom-remote fengmk2/tap "$GITHUB_WORKSPACE"
-          brew update-reset "$(brew --repository fengmk2/tap)"
-          brew install --cask fengmk2/tap/projj-desktop
-          test "$(stat -f '%i' /Applications/Projj.app)" = "$(cat "$RUNNER_TEMP/projj-inode")"
-          test "$(git -C "$(brew --repository fengmk2/tap)" rev-parse HEAD)" = "$GITHUB_SHA"
+          brew uninstall --cask fengmk2/tap/projj-desktop
+          brew untap fengmk2/tap
+          brew tap fengmk2/projj-desktop "$GITHUB_WORKSPACE"
+          brew install --cask fengmk2/projj-desktop/projj-desktop
+          test -f ~/.projj/homebrew-migration-test
+          test "$(git -C "$(brew --repository fengmk2/projj-desktop)" rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Verify the cask and installation
         run: |
-          brew style --cask fengmk2/tap/projj-desktop
-          brew audit --cask fengmk2/tap/projj-desktop
+          brew style --cask fengmk2/projj-desktop/projj-desktop
+          brew audit --cask fengmk2/projj-desktop/projj-desktop
           test -d /Applications/Projj.app
           codesign --verify --deep --strict /Applications/Projj.app
           "$(brew --prefix)/bin/projj" --version
       - name: Uninstall
-        run: brew uninstall --cask fengmk2/tap/projj-desktop
+        run: brew uninstall --cask fengmk2/projj-desktop/projj-desktop

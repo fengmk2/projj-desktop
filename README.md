@@ -17,19 +17,18 @@ This 51-second captioned walkthrough uses example repositories and soft instrume
 On macOS 12 or later, with Apple silicon or Intel:
 
 ```sh
-brew tap fengmk2/tap https://github.com/fengmk2/projj-desktop.git
-brew install --cask fengmk2/tap/projj-desktop
+brew tap fengmk2/projj-desktop https://github.com/fengmk2/projj-desktop.git
+brew install --cask fengmk2/projj-desktop/projj-desktop
 ```
 
-The tap is hosted in this repository. To migrate an existing tap from the former `fengmk2/homebrew-tap` repository:
+The dedicated `fengmk2/projj-desktop` tap is hosted in this repository. If you installed the app through the former `fengmk2/tap`, remove that installation and tap before running the commands above:
 
 ```sh
-brew tap --custom-remote fengmk2/tap https://github.com/fengmk2/projj-desktop.git
-brew update-reset "$(brew --repository fengmk2/tap)"
-brew install --cask fengmk2/tap/projj-desktop
+brew uninstall --cask fengmk2/tap/projj-desktop
+brew untap fengmk2/tap
 ```
 
-This replaces the tap checkout, including any local cask edits. Your installed app, CLI, configuration, and repositories are preserved.
+Reinstalling the app and CLI preserves your `~/.projj` configuration and repositories.
 
 This installs `Projj.app` in `/Applications` and adds the bundled `projj` CLI to Homebrew's `bin` directory. Open **Projj** from Applications or run `open -a Projj`. Git must be available on your system; Node.js and Rust are not required. To keep an existing CLI installation, add `--no-binaries` to the install command.
 
@@ -37,10 +36,10 @@ To update:
 
 ```sh
 brew update
-brew upgrade --cask fengmk2/tap/projj-desktop
+brew upgrade --cask fengmk2/projj-desktop/projj-desktop
 ```
 
-To uninstall, run `brew uninstall --cask fengmk2/tap/projj-desktop`. Your `~/.projj` configuration and repositories are preserved. The cask is maintained in [`Casks/projj-desktop.rb`](Casks/projj-desktop.rb).
+To uninstall, run `brew uninstall --cask fengmk2/projj-desktop/projj-desktop`. Your `~/.projj` configuration and repositories are preserved. The cask is maintained in [`Casks/projj-desktop.rb`](Casks/projj-desktop.rb).
 
 ### Release downloads
 
