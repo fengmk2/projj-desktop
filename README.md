@@ -61,11 +61,11 @@ On macOS, open `dist/Projj.app` or copy it to `~/Applications`. On Linux, run `d
 
 ## Releases
 
-The [Release workflow](.github/workflows/release.yml) publishes a GitHub Release when a `v*` tag is pushed. The tag must match the package version in `Cargo.toml`. For example, with version `0.0.0`:
+The [Release workflow](.github/workflows/release.yml) publishes a GitHub Release when a `v*` tag is pushed. The tag must match the package version in `Cargo.toml`. For example, with version `1.0.0`:
 
 ```sh
-git tag -a v0.0.0 -m "Release v0.0.0"
-git push origin v0.0.0
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
 ```
 
 For a new version, update `Cargo.toml`, run `cargo check` to update `Cargo.lock`, and commit both files before tagging. Packaging reads the Cargo version for the CLI, app manifest, and macOS bundle metadata. Tags such as `v0.2.0-rc.1` create prereleases.
@@ -84,7 +84,7 @@ After publishing a stable release, the same workflow calls [Update Homebrew cask
 If the cask update fails after a release is published, retry it without rebuilding the packages:
 
 ```sh
-gh workflow run homebrew.yml --repo fengmk2/projj-desktop -f tag=v0.0.0
+gh workflow run homebrew.yml --repo fengmk2/projj-desktop -f tag=v1.0.0
 ```
 
 ## Features
