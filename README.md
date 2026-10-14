@@ -10,7 +10,32 @@ This 51-second captioned walkthrough uses example repositories and soft instrume
 
 [Animated preview](docs/media/projj-demo.gif) · [Download MP4](https://github.com/fengmk2/projj-desktop/raw/refs/heads/main/docs/media/projj-demo.mp4)
 
-## Run
+## Install
+
+### Homebrew (macOS)
+
+On macOS 12 or later, with Apple silicon or Intel:
+
+```sh
+brew install --cask fengmk2/tap/projj-desktop
+```
+
+This installs `Projj.app` in `/Applications` and adds the bundled `projj` CLI to Homebrew's `bin` directory. Open **Projj** from Applications or run `open -a Projj`. Git must be available on your system; Node.js and Rust are not required. To keep an existing CLI installation, add `--no-binaries` to the install command.
+
+To update:
+
+```sh
+brew update
+brew upgrade --cask fengmk2/tap/projj-desktop
+```
+
+To uninstall, run `brew uninstall --cask fengmk2/tap/projj-desktop`. Your `~/.projj` configuration and repositories are preserved. See the [Homebrew tap](https://github.com/fengmk2/homebrew-tap) for maintenance details.
+
+### Release downloads
+
+Download a package for macOS or Linux from [GitHub Releases](https://github.com/fengmk2/projj-desktop/releases/latest). The macOS app uses an ad-hoc signature and is not notarized. If macOS blocks the first launch, use **System Settings → Privacy & Security → Open Anyway** after reviewing the downloaded app. This also applies to Homebrew installs.
+
+## Run from source
 
 Requires Git, stable Rust (edition 2024), and Node.js 22+. Development and packaging scripts use Node.js built-ins and the platform's `curl` and `tar` tools; no npm dependencies need to be installed. Node.js is not needed to run a packaged app.
 
@@ -50,6 +75,8 @@ The workflow tests and builds on each target before publishing:
 - `SHA256SUMS`
 
 Release notes are generated automatically. The workflow uses the repository's `GITHUB_TOKEN`; no additional publishing secret is required. macOS packages use ad-hoc signing. Select **Run workflow** in GitHub Actions for a build-only check: it uploads workflow artifacts and does not create a release.
+
+The [Homebrew tap updater](https://github.com/fengmk2/homebrew-tap/actions/workflows/update-projj.yml) checks stable releases hourly and updates the cask's version and architecture-specific checksums. It excludes prereleases and uses the tap repository's own `GITHUB_TOKEN`. Maintainers can also run that workflow manually for an immediate update.
 
 ## Features
 
