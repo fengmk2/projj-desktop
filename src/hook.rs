@@ -38,12 +38,13 @@ pub fn run_hooks(config: &Config, event: &str, repo_key: &str, cwd: &Path) -> Re
     }
 
     // Build repo context from repo_key (host/owner/name)
-    let parts: Vec<&str> = repo_key.splitn(3, '/').collect();
-    let (host, owner, name) = if parts.len() == 3 {
-        (parts[0], parts[1], parts[2])
-    } else {
-        ("", "", repo_key)
-    };
+    let (host, owner, name) = repo_key
+        .split_once('/')
+        .and_then(|(host, path)| {
+            path.rsplit_once('/')
+                .map(|(owner, name)| (host, owner, name))
+        })
+        .unwrap_or(("", "", repo_key));
 
     let context = HookContext {
         event: event.to_string(),

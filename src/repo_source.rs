@@ -29,7 +29,7 @@ impl Repo {
 }
 
 /// Scan base directories for git repositories.
-/// Fixed depth: base/host/owner/repo/.git
+/// Layout: base/host/owner[/subgroup]/repo/.git. Does not traverse a repository.
 pub fn scan(base_dirs: &[PathBuf]) -> Result<Vec<Repo>> {
     let mut repos = Vec::new();
     for base in base_dirs {
@@ -43,62 +43,81 @@ pub fn scan(base_dirs: &[PathBuf]) -> Result<Vec<Repo>> {
 }
 
 fn scan_base(base: &Path, repos: &mut Vec<Repo>) -> Result<()> {
-    let base_path = base.to_path_buf();
-    // Level 1: host (github.com, gitlab.com, ...)
     let Ok(hosts) = std::fs::read_dir(base) else {
         return Ok(());
     };
-    for host_entry in hosts {
-        let host_entry = host_entry?;
-        if !host_entry.file_type()?.is_dir() {
+    for entry in hosts {
+        let entry = entry?;
+        let host = entry.file_name().to_string_lossy().to_string();
+        if !entry.file_type()?.is_dir() || host.starts_with('.') {
             continue;
         }
-        let host_name = host_entry.file_name().to_string_lossy().to_string();
-        if host_name.starts_with('.') {
+        scan_namespace(base, &host, &entry.path(), "", repos)?;
+    }
+    Ok(())
+}
+
+fn scan_namespace(
+    base: &Path,
+    host: &str,
+    directory: &Path,
+    namespace: &str,
+    repos: &mut Vec<Repo>,
+) -> Result<()> {
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return Ok(());
+    };
+    for entry in entries {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        // Do not follow symbolic links, hidden folders, or nested repositories.
+        if !entry.file_type()?.is_dir() || name.starts_with('.') {
             continue;
         }
-
-        // Level 2: owner
-        let Ok(owners) = std::fs::read_dir(host_entry.path()) else {
-            continue;
-        };
-        for owner_entry in owners {
-            let owner_entry = owner_entry?;
-            if !owner_entry.file_type()?.is_dir() {
-                continue;
-            }
-            let owner_name = owner_entry.file_name().to_string_lossy().to_string();
-            if owner_name.starts_with('.') {
-                continue;
-            }
-
-            // Level 3: repo
-            let Ok(repo_entries) = std::fs::read_dir(owner_entry.path()) else {
-                continue;
+        let path = entry.path();
+        if !namespace.is_empty() && path.join(".git").exists() {
+            repos.push(Repo {
+                path,
+                base: base.to_path_buf(),
+                host: host.to_string(),
+                owner: namespace.to_string(),
+                name,
+            });
+        } else if namespace.is_empty() || (host.contains('.') && is_namespace(&path)?) {
+            let owner = if namespace.is_empty() {
+                name
+            } else {
+                format!("{namespace}/{name}")
             };
-            for repo_entry in repo_entries {
-                let repo_entry = repo_entry?;
-                if !repo_entry.file_type()?.is_dir() {
-                    continue;
-                }
-                let repo_name = repo_entry.file_name().to_string_lossy().to_string();
-                if repo_name.starts_with('.') {
-                    continue;
-                }
-
-                if repo_entry.path().join(".git").exists() {
-                    repos.push(Repo {
-                        path: repo_entry.path(),
-                        base: base_path.clone(),
-                        host: host_name.clone(),
-                        owner: owner_name.clone(),
-                        name: repo_name,
-                    });
-                }
-            }
+            scan_namespace(base, host, &path, &owner, repos)?;
         }
     }
     Ok(())
+}
+
+// DNS host directories may contain deeper namespaces. Other top-level
+// directories keep the original fixed-depth scan (for example, worktrees).
+// A deeper namespace is a container of directories, not a project tree.
+// Avoid discovering fixtures inside untracked projects or walking build output.
+fn is_namespace(path: &Path) -> Result<bool> {
+    if path.join(".git").exists() {
+        return Ok(false);
+    }
+    let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+    if ["node_modules", "target", "vendor", "dist", "build"].contains(&name) {
+        return Ok(false);
+    }
+    let Ok(entries) = std::fs::read_dir(path) else {
+        return Ok(false);
+    };
+    for entry in entries {
+        let entry = entry?;
+        let name = entry.file_name();
+        if !name.to_string_lossy().starts_with('.') && !entry.file_type()?.is_dir() {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 /// Find repos matching a keyword (case-insensitive).
@@ -128,6 +147,38 @@ pub fn find(repos: &[Repo], keyword: &str) -> Vec<Repo> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn scan_nested_namespaces_without_entering_repositories() {
+        let dir = tempfile::tempdir().unwrap();
+        let repo = dir.path().join("gitlab.com/group/subgroup/project");
+        std::fs::create_dir_all(repo.join(".git")).unwrap();
+        std::fs::create_dir_all(repo.join("nested/.git")).unwrap();
+        let repos = scan(&[dir.path().to_path_buf()]).unwrap();
+        assert_eq!(repos.len(), 1);
+        assert_eq!(repos[0].owner, "group/subgroup");
+        assert_eq!(repos[0].short_key(), "group/subgroup/project");
+    }
+
+    #[test]
+    fn scan_keeps_conventional_repos_in_an_owner_with_git_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("github.com/owner/.git")).unwrap();
+        std::fs::create_dir_all(dir.path().join("github.com/owner/project/.git")).unwrap();
+        std::fs::create_dir_all(
+            dir.path()
+                .join("github.com/owner/source/tests/fixture/.git"),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("github.com/owner/source/package.json"),
+            "{}",
+        )
+        .unwrap();
+        let repos = scan(&[dir.path().to_path_buf()]).unwrap();
+        assert_eq!(repos.len(), 1);
+        assert_eq!(repos[0].name, "project");
+    }
 
     fn make_repo(host: &str, owner: &str, name: &str) -> Repo {
         Repo {

@@ -61,3 +61,13 @@ out/
 # Added by cargo
 
 /target
+
+# Desktop build and runtime
+.tools/
+dist/
+app/bin/
+app/gpui-kit.d.ts
+app/node_modules/
+.DS_Store
+
+app/environment.js

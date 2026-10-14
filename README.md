@@ -1,381 +1,107 @@
-# Projj
+# Projj Desktop
 
-Manage git repositories with directory conventions — clone once, find instantly.
+A native desktop home for your Git repositories, built with [gpui-shell](https://gpui-kit.com/shell/). The interface is JavaScript rendered by GPUI; the backend and bundled CLI share Projj's Rust core. There is no browser engine or Node.js runtime in the app.
 
-[![Crates.io](https://img.shields.io/crates/v/projj.svg)](https://crates.io/crates/projj)
-[![CI](https://github.com/popomore/projj/actions/workflows/ci.yml/badge.svg)](https://github.com/popomore/projj/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+## Run
 
-## The Problem
+Requires Git, stable Rust (edition 2024), and Python 3.9+. Node.js is only needed for the JavaScript tests.
 
-Git repos pile up. You clone them into `~/code`, `~/projects`, `~/work`, or wherever feels right at the moment. Six months later:
-
-```
-~/code/projj
-~/projects/old-projj
-~/misc/projj-backup
-~/work/projj-fork
+```sh
+git clone https://github.com/fengmk2/projj-desktop.git
+cd projj-desktop
+python3 scripts/runtime.py
+scripts/dev.sh
 ```
 
-Which one is current? Where did you put that internal GitLab repo? You `find / -name .git` and wait.
+The downloader pins gpui-shell `0.7.3` and verifies the official archive's SHA-256 checksum. Set `GPUI_SHELL=/absolute/path/to/gpui-shell` to use an existing installation. Supported package targets are macOS (Apple silicon or Intel) and Linux x86-64. Native UI testing was performed on Apple silicon macOS.
 
-## The Solution
+Build a standalone app:
 
-Projj gives every repo a predictable home based on its URL — just like `GOPATH` did for Go:
-
-```text
-$BASE/
-├── github.com/
-│   └── popomore/
-│       └── projj/
-└── gitlab.com/
-    └── company/
-        └── internal-tool/
+```sh
+python3 scripts/package.py
 ```
 
-- **One repo, one location** — no duplicates, no guessing
-- **Instant lookup** — fuzzy find with fzf, jump with `p projj`
-- **Hooks** — auto-configure git user, register with zoxide, run custom scripts on clone
-- **Multi-host** — GitHub, GitLab, Gitee, self-hosted — all organized the same way
-- **Zero overhead** — no daemon, no cache, no database, just your filesystem
+On macOS, open `dist/Projj.app` or copy it to `~/Applications`. On Linux, run `dist/projj-desktop/projj-desktop`. The bundle includes the runtime, scripts, Rust backend, and full `projj` CLI. Git and any tools your tasks use remain system dependencies. The macOS build uses an ad-hoc signature; distribution with a Developer ID and notarization requires your own Apple signing credentials.
 
-## Install
+## Features
 
-```bash
-# Cargo
-cargo install projj
+| Projj command or feature | Desktop access |
+| --- | --- |
+| `init` | First-run setup creates configuration and installs all five built-in tasks without replacing existing files. |
+| `add` | Add repository accepts short names, HTTPS, SSH with ports, and local paths. Choose a base directory and preview the destination. Existing destinations skip hooks. |
+| `find` / `list` | Search by repository, owner, or host; exact names rank first. Filter by host and base directory, copy paths, inspect Git status, and open a folder or terminal. The list is virtualized. |
+| `remove` | Select a repository and type its full `owner/repo` name to confirm permanent deletion. Both removal hook events run. |
+| `run` | Run inline tasks, executable scripts, or raw commands in the selected repository, a custom directory, or all repositories. Apply a regex filter and pass quoted arguments. |
+| Interactive tasks | **Run in Terminal** supports prompts, including per-directory cleanup confirmation. Background runs have captured logs and a Stop button. |
+| Built-in tasks | `status`, `clean`, `zoxide`, `git-config-user`, and the deprecated `repo-status` alias are included. `status --detail` reports ignored files; `clean` previews first and supports filtered or confirmed cleanup. |
+| Hooks | Automation shows `pre_add`, `post_add`, `pre_remove`, and `post_remove`. Edit regex matchers, ordered task lists, and custom environment variables in Settings. Hooks receive the original `PROJJ_*` variables and JSON on stdin. |
+| Configuration | Edit the shared TOML, including multiple base directories, default host, tasks, and hooks. Saves validate the file and reject changes if another program edited it in the meantime. Comments are preserved. |
+| Task scripts | Create and edit executable files under `~/.projj/tasks` from Tasks & activity. Inline tasks still take precedence. |
+| Shell integration | Copy setup or full completion scripts for Bash, Zsh, and Fish. The included CLI provides the `p` navigation function and task completion. |
 
-# Homebrew (after first release)
-brew install popomore/tap/projj
-```
+The [CLI reference](docs/CLI.md) describes the original commands, configuration, built-ins, and environment variables. The repository retains upstream history and its tests.
 
-## Quick Start
+## Data and permissions
 
-```bash
-projj init                              # one-time setup
-projj add popomore/projj               # clone → ~/projj/github.com/popomore/projj
-projj add git@gitlab.com:team/app.git   # clone → ~/projj/gitlab.com/team/app
-p projj                                 # jump to repo instantly (shell function)
-projj run status --all                  # batch operations across all repos
-```
+The app reads the same `~/.projj/config.toml` and `~/.projj/tasks/` as the CLI. Repositories remain ordinary directories; no catalog database or migration is required. Refresh picks up external filesystem and configuration changes.
 
-### Shell Integration
+Jobs and their full logs are stored under `~/.projj/desktop/jobs/`. The interface lists the latest 30 jobs and bounds displayed output. Jobs continue if the window closes and appear again after restart. Cancellation stops the worker process group; it does not undo changes already made by a command, clone, move, or hook. A failed post-add hook leaves the newly added repository in place. A failed pre-remove hook preserves the repository.
 
-Add to `~/.zshrc` (or `~/.bashrc`, `~/.config/fish/config.fish`):
+The manifest grants only:
 
-```bash
-eval "$(projj shell-setup zsh)"    # zsh
-eval "$(projj shell-setup bash)"   # bash
-projj shell-setup fish | source    # fish
-```
+- Execution of `projj-desktop-backend`, which handles repository files, Git, tasks, and opening local folders or terminals. Task commands and hooks have your normal user privileges.
+- Clipboard writes for paths, output, and shell setup.
+- App storage for the appearance preference.
 
-This sets up:
-
-- Tab completions for all commands
-- `projj run` completes task names from `[tasks]` config and `~/.projj/tasks/`
-- `p()` function for quick navigation
-
-```bash
-p projj       # jump to projj
-p egg         # multiple matches → fzf selection
-p             # browse all repos with fzf
-```
-
-## Commands
-
-### projj init
-
-Initialize configuration. Creates `~/.projj/config.toml`, installs built-in tasks to `~/.projj/tasks/`, and shows a summary of your setup (base directories, repos found, hooks, tasks).
-
-### projj add \<repo\>
-
-Clone a repo into the conventional directory structure.
-
-```bash
-projj add popomore/projj                                  # short form
-projj add git@github.com:popomore/projj.git               # SSH
-projj add https://github.com/popomore/projj               # HTTPS
-projj add ssh://git@git.gitlab.cn:2224/web/cms.git         # SSH with port
-projj add ./local/repo                                     # move local repo
-```
-
-Runs `post_add` hooks after cloning. Skips hooks if repo already exists.
-
-### projj find [keyword]
-
-Find a repo by keyword (case-insensitive). Outputs the path to stdout.
-
-- **Single match** — prints path directly
-- **Multiple matches** — opens fzf for fuzzy selection with colored group tags (base/domain) and git URL
-- **No keyword** — lists all repos for selection
-- **No fzf** — falls back to numbered list
-
-### projj remove \<keyword\>
-
-Remove a repo. Searches the same way as `find`, then requires typing `owner/repo` to confirm. Runs `pre_remove` / `post_remove` hooks.
-
-### projj run \<task\> [--all] [--match PATTERN] [-- ARGS...]
-
-Run a task in the current directory, or all repos with `--all`.
-
-```bash
-projj run "npm install"                             # raw command
-projj run update --all                              # named task in all repos
-projj run "git status" --all --match "SeeleAI"      # filter repos by regex
-projj run status -- --detail                        # pass args to task after --
-```
-
-### projj list [--raw]
-
-List all repositories with grouped display, colored by base directory and domain.
-
-```bash
-projj list              # pretty: grouped by base/host, colored, with git URL
-projj list --raw        # plain paths, one per line (for piping)
-```
-
-## Configuration
-
-`~/.projj/config.toml`
+The UI itself has no direct filesystem or network access. Git uses your usual config and credential helpers. Since gpui-shell clears child environments, the helper restores a home directory, standard executable paths, UTF-8 locale, and the macOS login SSH agent. It includes Homebrew, `~/.local/bin`, `~/.cargo/bin`, and `~/.vite-plus/bin`. For custom tools, agents, proxies, or environment variables, add a table in Settings:
 
 ```toml
-base = ["/Users/x/projj", "/Users/x/work"]
-platform = "github.com"
-
-[tasks]
-update = "git fetch && git pull origin -p"
-clean = "rm -rf node_modules dist target"
-status = "git status --short"
-
-[[hooks]]
-event = "post_add"
-tasks = ["zoxide"]
-
-[[hooks]]
-event = "post_add"
-matcher = "github\\.com"
-tasks = ["zoxide", "git-config-user"]
-env = { GIT_USER_NAME = "popomore", GIT_USER_EMAIL = "me@example.com" }
-
-[[hooks]]
-event = "post_add"
-matcher = "gitlab\\.com"
-tasks = ["zoxide", "git-config-user"]
-env = { GIT_USER_NAME = "Other Name", GIT_USER_EMAIL = "other@corp.com" }
+[desktop.environment]
+PATH = "/my/tools:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+# SSH_AUTH_SOCK = "/path/to/your/agent.sock"
 ```
 
-| Field | Description | Default |
-|-------|-------------|---------|
-| `base` | Root directory (string or array) | `~/projj` |
-| `platform` | Default host for short form `owner/repo` | `github.com` |
-| `tasks` | Named tasks (see [Tasks](#tasks)) | `{}` |
-| `hooks` | Event-driven hooks (see [Hooks](#hooks)) | `[]` |
+Use an interactive terminal task for commands that need password prompts. Background Git operations use configured credentials and fail visibly if authentication is unavailable.
 
-## Tasks
+For an isolated development home:
 
-Tasks are reusable commands that can be run manually via `projj run` or triggered by hooks.
-
-### Defining Tasks
-
-**Inline** — one-liners in `[tasks]` table:
-
-```toml
-[tasks]
-update = "git fetch && git pull origin -p"
-clean = "rm -rf node_modules dist target"
+```sh
+PROJJ_HOME=/absolute/path/to/test-home scripts/dev.sh
 ```
 
-**Script files** — executables in `~/.projj/tasks/`:
+This writes an ignored launch module with the explicit home override because gpui-shell does not pass it through to child processes. Packaged builds always use the normal home. Do not set `HOME` or `PROJJ_HOME` inside `[desktop.environment]`.
 
-```bash
-cat > ~/.projj/tasks/notify << 'EOF'
-#!/bin/bash
-echo "Added $PROJJ_REPO_OWNER/$PROJJ_REPO_NAME"
-EOF
-chmod +x ~/.projj/tasks/notify
+## Shortcuts
+
+- `⌘N`: add a repository
+- `⌘R`: refresh
+- `⌘1`–`⌘4`: repositories, tasks, automation, settings
+- `⌘S`: save settings
+- `Escape`: close a dialog
+
+The platform modifier follows gpui-shell's native keyboard mapping.
+
+## Development and verification
+
+```sh
+cargo test --all-features
+cargo clippy --all-targets -- -D warnings
+cargo fmt --all --check
+node --test tests/model.test.mjs
+scripts/dev.sh check
+python3 scripts/check-ui.py
 ```
 
-### Running Tasks
+The Rust tests cover the shared core, CLI interactions, and desktop operations against temporary directories and local Git remotes. Desktop tests include clone/move, hook order and failures, typed removal, shell integration, cleanup, literal arguments, batch filtering, job cancellation, stale process IDs, and gpui-shell's empty child environment. The UI checker materializes every screen and dialog with a test view that cannot execute backend operations. Also test behavioral changes in a live window; a one-frame check does not prove interaction or layout behavior.
 
-```bash
-projj run update --all                    # inline task
-projj run notify --all                    # task file
-projj run status -- --detail              # pass arguments after --
-projj run "git log -5"                    # raw command (not a named task)
-```
+`app/main.js` contains the view, `app/model.js` contains pure presentation logic, and `src/desktop/main.rs` implements the JSON helper and background workers. Generated declarations, runtime binaries, test homes, and bundles are ignored. Use `gpui-shell types -d app` after changing runtime versions.
 
-Resolution order: `[tasks]` table → `~/.projj/tasks/` file → raw shell command.
+## Reference and differences
 
-### Task Context
+Based on [popomore/projj](https://github.com/popomore/projj), starting at `1083f8a`. The original CLI remains included. This desktop version adds native selection, background activity, script/configuration editors, nested GitLab namespace discovery under DNS-named host directories, and correct no-op behavior when optional zoxide or Git identity settings are absent. Arguments in the desktop arguments field are passed literally; shell operators belong in the command field. Removal keeps the parent directory available until post-remove hooks finish.
 
-When tasks are executed via hooks, they receive repo context via environment variables:
-
-```text
-PROJJ_EVENT        — event name (e.g. post_add)
-PROJJ_REPO_PATH    — full path to repo
-PROJJ_REPO_HOST    — e.g. github.com
-PROJJ_REPO_OWNER   — e.g. popomore
-PROJJ_REPO_NAME    — e.g. projj
-PROJJ_REPO_URL     — e.g. git@github.com:popomore/projj.git
-```
-
-These are system-provided variables. Hooks can also pass custom variables via the `env` field (see [Hooks](#hooks)).
-
-JSON is also sent via stdin for richer parsing. When run manually via `projj run`, these variables are not set.
-
-### Built-in Tasks
-
-Installed to `~/.projj/tasks/` on `projj init`.
-
-#### zoxide
-
-Registers the repo path with [zoxide](https://github.com/ajeetdsouza/zoxide) so `z` can jump to it. Silently skips if zoxide is not installed.
-
-```toml
-[[hooks]]
-event = "post_add"
-tasks = ["zoxide"]
-```
-
-#### git-config-user
-
-Sets `user.name` and `user.email` for the repo. Reads from custom env vars set in the hook's `env` field (not system-provided `PROJJ_*` variables).
-
-```toml
-[[hooks]]
-event = "post_add"
-matcher = "github\\.com"
-tasks = ["git-config-user"]
-env = { GIT_USER_NAME = "popomore", GIT_USER_EMAIL = "me@example.com" }
-
-[[hooks]]
-event = "post_add"
-matcher = "gitlab\\.com"
-tasks = ["git-config-user"]
-env = { GIT_USER_NAME = "Other Name", GIT_USER_EMAIL = "other@corp.com" }
-```
-
-| Env var | Description |
-|---------|-------------|
-| `GIT_USER_NAME` | Value for `git config user.name` |
-| `GIT_USER_EMAIL` | Value for `git config user.email` |
-
-Both are optional. Skips if not set.
-
-#### status
-
-Shows disk usage, git status, and ignored files for a repo.
-
-```bash
-projj run status                   # current repo
-projj run status --all             # all repos (quick summary)
-projj run status -- --detail       # include ignored files breakdown
-```
-
-Output example:
-
-```text
-📦 1.1G total | 🗃️  .git 2.0M | ✓ clean
-📦 1.1G total | 🗃️  .git 2.0M | ✓ clean | 🚫 15437 ignored: target(1.1G, 99%)
-📦 6.3M total | 🗃️  .git 2.9M | ✎ 22 dirty | 🚫 5 ignored: .claude(1.3M, 21%) skills📂(852K, 13%)
-```
-
-Colors by size: green (<100M), yellow (100M–1G), red (>1G). Respects `NO_COLOR`. In the ignored breakdown, a trailing 📂 marks a bucket where only some files inside the top-level directory are ignored (e.g. `skills📂` means "part of `skills/`"), while a bare name like `target` means the whole directory is ignored.
-
-> **Deprecated**: the previous name `repo-status` still works but prints a warning to stderr and delegates to `status`. It will be removed in a future release — please switch to `projj run status`.
-
-#### clean
-
-Removes git-ignored top-level directories (`target/`, `node_modules/`, `dist/`, ...) — the natural follow-up to `repo-status -- --detail`. Only ever touches paths reported by `git ls-files --others --ignored --exclude-standard --directory`, so untracked new files and tracked changes are never at risk.
-
-```bash
-projj run clean                                  # dry-run: list all ignored top-level dirs
-projj run clean -- target                        # dry-run, filter by name/glob
-projj run clean -- --force                       # interactive: y/N/a/q per dir
-projj run clean -- --force --yes                 # non-interactive, remove all
-projj run clean -- --force target node_modules   # remove only these, no prompt
-projj run clean --all                            # dry-run across all repos
-projj run clean --all -- --force                 # interactive across all repos
-```
-
-Output example:
-
-```text
-🧹 would remove (2 items, 1.4G total):
-  target        1.1G
-  node_modules  340M
-tip: projj run clean -- --force   to remove interactively
-```
-
-Interactive prompts: `y` yes, `n`/enter skip, `a` yes to all remaining, `q` quit. If stdin is not a tty and `--yes` was not passed, the script refuses to delete and prints the dry-run list instead. If you define `clean` in your `[tasks]` table, it overrides this built-in.
-
-## Hooks
-
-Hooks trigger tasks automatically at repo lifecycle events. They are the glue between events and tasks.
-
-### Events
-
-| Event | When | cwd |
-|-------|------|-----|
-| `pre_add` | Before clone/move | Target directory |
-| `post_add` | After clone/move | Repo directory |
-| `pre_remove` | Before deletion | Repo directory |
-| `post_remove` | After deletion | Parent directory |
-
-### Configuration
-
-```toml
-[[hooks]]
-event = "post_add"                                    # required: event name
-matcher = "github\\.com"                              # optional: regex on host/owner/repo
-tasks = ["zoxide", "git-config-user"]                 # required: tasks to run in order
-env = { GIT_USER_NAME = "popomore" }                       # optional: custom env vars for tasks
-```
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `event` | Yes | Event name |
-| `matcher` | No | Regex against `host/owner/repo`. Omit to match all |
-| `tasks` | Yes | List of task names or commands, executed in order. Stops on first failure |
-| `env` | No | Custom environment variables passed to tasks (user-defined, not `PROJJ_*`) |
-
-Each entry in `tasks` is resolved the same way as `projj run` (task table → task file → raw command).
-
-### Matcher
-
-The `matcher` field is a regex matched against `host/owner/repo`. Omit to match all repos.
-
-| Matcher | Matches |
-|---------|---------|
-| *(omitted)* or `*` | All repos |
-| `github\\.com` | All GitHub repos |
-| `github\\.com/SeeleAI` | All repos under SeeleAI org |
-| `github\\.com/popomore/projj` | Exact repo |
-| `gitlab\\.com\|gitee\\.com` | GitLab or Gitee repos |
-
-Note: `.` in regex matches any character. Use `\\.` to match a literal dot.
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `NO_COLOR` | Disable all colored output ([no-color.org](https://no-color.org/)) |
-| `PROJJ_HOME` | Override home directory for config location |
-
-## External Tools
-
-Optional integrations. Projj works fine without them.
-
-| Tool | Integration | Without it |
-|------|------------|------------|
-| [fzf](https://github.com/junegunn/fzf) | Fuzzy search in `find` / `remove` | Numbered list |
-| [zoxide](https://github.com/ajeetdsouza/zoxide) | `post_add` hook registers paths | No auto-registration |
-
-```bash
-# macOS
-brew install fzf zoxide
-```
+Runtime and packaging follow the [official gpui-shell documentation](https://gpui-kit.com/shell/). [huacnlee/gpui-shell-benchs](https://github.com/huacnlee/gpui-shell-benchs) provided working examples and notes on runtime limitations. The interface and vector icons in this repository were created for Projj; no benchmark application's visual design or sample content is shipped.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Original Projj copyright is retained. The bundled gpui-shell runtime uses Apache-2.0; its license is included when packaging.

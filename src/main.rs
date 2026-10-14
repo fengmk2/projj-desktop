@@ -1,11 +1,4 @@
-mod cmd;
-mod color;
-mod config;
-mod git;
-mod hook;
-mod repo_source;
-mod select;
-mod task;
+use projj::cmd;
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
