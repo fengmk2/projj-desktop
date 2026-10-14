@@ -6,7 +6,7 @@ A native desktop home for your Git repositories, built with [gpui-shell](https:/
 
 https://github.com/user-attachments/assets/eccb68a9-6c8a-4b78-aa13-6d59894cb68c
 
-This 51-second captioned walkthrough uses example repositories and soft instrumental background music. It shows repository search and details, tasks for one or all repositories, adding a local repository with a destination preview, automation hooks, and the shared CLI configuration.
+This 51-second captioned walkthrough uses example repositories and soft instrumental background music. Unmute the player to hear the music. It shows repository search and details, tasks for one or all repositories, adding a local repository with a destination preview, automation hooks, and the shared CLI configuration.
 
 [Animated preview](docs/media/projj-demo.gif) · [Download MP4](https://github.com/fengmk2/projj-desktop/raw/refs/heads/main/docs/media/projj-demo.mp4)
 
