@@ -63,26 +63,10 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Install from an independent tap checkout
+      - name: Install from this repository
         run: |
-          # Model the former tap without depending on its archived GitHub repository.
-          legacy_tap="$RUNNER_TEMP/legacy-tap"
-          mkdir -p "$legacy_tap/Casks"
-          cp Casks/projj-desktop.rb "$legacy_tap/Casks/"
-          git -C "$legacy_tap" init -b main
-          git -C "$legacy_tap" add Casks/projj-desktop.rb
-          git -C "$legacy_tap" -c user.name=CI -c user.email=ci@example.com commit -m 'Legacy tap fixture'
-          brew tap fengmk2/tap "$legacy_tap"
-          brew install --cask fengmk2/tap/projj-desktop
-          mkdir -p ~/.projj
-          touch ~/.projj/homebrew-migration-test
-      - name: Migrate to the dedicated tap
-        run: |
-          brew uninstall --cask fengmk2/tap/projj-desktop
-          brew untap fengmk2/tap
           brew tap fengmk2/projj-desktop "$GITHUB_WORKSPACE"
           brew install --cask fengmk2/projj-desktop/projj-desktop
-          test -f ~/.projj/homebrew-migration-test
           test "$(git -C "$(brew --repository fengmk2/projj-desktop)" rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Verify the cask and installation
         run: |

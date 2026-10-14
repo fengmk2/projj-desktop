@@ -21,14 +21,7 @@ brew tap fengmk2/projj-desktop https://github.com/fengmk2/projj-desktop.git
 brew install --cask fengmk2/projj-desktop/projj-desktop
 ```
 
-The dedicated `fengmk2/projj-desktop` tap is hosted in this repository. If you installed the app through the former `fengmk2/tap`, remove that installation and tap before running the commands above:
-
-```sh
-brew uninstall --cask fengmk2/tap/projj-desktop
-brew untap fengmk2/tap
-```
-
-Reinstalling the app and CLI preserves your `~/.projj` configuration and repositories.
+The `fengmk2/projj-desktop` tap is hosted in this repository.
 
 This installs `Projj.app` in `/Applications` and adds the bundled `projj` CLI to Homebrew's `bin` directory. Open **Projj** from Applications or run `open -a Projj`. Git must be available on your system; Node.js and Rust are not required. To keep an existing CLI installation, add `--no-binaries` to the install command.
 
