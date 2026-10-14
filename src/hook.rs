@@ -126,9 +126,7 @@ fn run_script(
 fn matches_repo(matcher: Option<&str>, repo_key: &str) -> bool {
     match matcher {
         None | Some("" | "*") => true,
-        Some(pattern) => regex_lite::Regex::new(pattern)
-            .map(|re| re.is_match(repo_key))
-            .unwrap_or(false),
+        Some(pattern) => regex_lite::Regex::new(pattern).is_ok_and(|re| re.is_match(repo_key)),
     }
 }
 
