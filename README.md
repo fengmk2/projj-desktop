@@ -4,9 +4,11 @@ A native desktop home for your Git repositories, built with [gpui-shell](https:/
 
 ## Quick tour
 
-[![Projj Desktop walkthrough: search repositories, inspect Git status, run tasks, add a repository, and review settings](docs/media/projj-demo.gif)](docs/media/projj-demo.mp4)
+https://github.com/user-attachments/assets/7b9b675d-d630-4b97-a657-c34f4c74248c
 
-[Watch the 51-second video (MP4)](docs/media/projj-demo.mp4). This captioned walkthrough uses example repositories and has no audio. It shows repository search and details, tasks for one or all repositories, adding a local repository with a destination preview, automation hooks, and the shared CLI configuration.
+This 51-second captioned walkthrough uses example repositories and has no audio. It shows repository search and details, tasks for one or all repositories, adding a local repository with a destination preview, automation hooks, and the shared CLI configuration.
+
+[Animated preview](docs/media/projj-demo.gif) · [Download MP4](https://github.com/fengmk2/projj-desktop/raw/refs/heads/main/docs/media/projj-demo.mp4)
 
 ## Run
 
