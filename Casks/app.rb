@@ -1,9 +1,9 @@
 cask "app" do
   arch arm: "arm64", intel: "x86_64"
 
-  version "1.0.1"
-  sha256 arm:   "58e6e1c4e5c92c3db487cec32092b906e6ab6cdf5bce23ab65ab514ba0a67fc2",
-         intel: "8b41ee3aee070f86cc71d00674c6262e27f6d025a62b357d2f8572b1219ad202"
+  version "1.0.2"
+  sha256 arm:   "438321579939dff93e39369c7a60984e416aa3f6d6f7930da35ff01c2478d549",
+         intel: "1ed2e67bddd944d0e49ef8bd1c953ea2c5adc889a9c4c361c990c2b8eaa52da0"
 
   url "https://github.com/fengmk2/projj-desktop/releases/download/v#{version}/Projj-v#{version}-macOS-#{arch}.zip"
   name "Projj Desktop"
