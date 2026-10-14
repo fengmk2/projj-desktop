@@ -17,8 +17,19 @@ This 51-second captioned walkthrough uses example repositories and soft instrume
 On macOS 12 or later, with Apple silicon or Intel:
 
 ```sh
+brew tap fengmk2/tap https://github.com/fengmk2/projj-desktop.git
 brew install --cask fengmk2/tap/projj-desktop
 ```
+
+The tap is hosted in this repository. To migrate an existing tap from the former `fengmk2/homebrew-tap` repository:
+
+```sh
+brew tap --custom-remote fengmk2/tap https://github.com/fengmk2/projj-desktop.git
+brew update-reset "$(brew --repository fengmk2/tap)"
+brew install --cask fengmk2/tap/projj-desktop
+```
+
+This replaces the tap checkout, including any local cask edits. Your installed app, CLI, configuration, and repositories are preserved.
 
 This installs `Projj.app` in `/Applications` and adds the bundled `projj` CLI to Homebrew's `bin` directory. Open **Projj** from Applications or run `open -a Projj`. Git must be available on your system; Node.js and Rust are not required. To keep an existing CLI installation, add `--no-binaries` to the install command.
 
@@ -29,7 +40,7 @@ brew update
 brew upgrade --cask fengmk2/tap/projj-desktop
 ```
 
-To uninstall, run `brew uninstall --cask fengmk2/tap/projj-desktop`. Your `~/.projj` configuration and repositories are preserved. See the [Homebrew tap](https://github.com/fengmk2/homebrew-tap) for maintenance details.
+To uninstall, run `brew uninstall --cask fengmk2/tap/projj-desktop`. Your `~/.projj` configuration and repositories are preserved. The cask is maintained in [`Casks/projj-desktop.rb`](Casks/projj-desktop.rb).
 
 ### Release downloads
 
@@ -76,7 +87,13 @@ The workflow tests and builds on each target before publishing:
 
 Release notes are generated automatically. The workflow uses the repository's `GITHUB_TOKEN`; no additional publishing secret is required. macOS packages use ad-hoc signing. Select **Run workflow** in GitHub Actions for a build-only check: it uploads workflow artifacts and does not create a release.
 
-The [Homebrew tap updater](https://github.com/fengmk2/homebrew-tap/actions/workflows/update-projj.yml) checks stable releases hourly and updates the cask's version and architecture-specific checksums. It excludes prereleases and uses the tap repository's own `GITHUB_TOKEN`. Maintainers can also run that workflow manually for an immediate update.
+After publishing a stable release, the same workflow calls [Update Homebrew cask](.github/workflows/homebrew.yml). It verifies both macOS checksums against `SHA256SUMS` and GitHub's asset digests, then commits the cask version and checksums to `main` using this repository's `GITHUB_TOKEN`. Prereleases do not change the cask, and older maintenance releases cannot downgrade it. No second repository or scheduled sync is required.
+
+If the cask update fails after a release is published, retry it without rebuilding the packages:
+
+```sh
+gh workflow run homebrew.yml --repo fengmk2/projj-desktop -f tag=v0.0.0
+```
 
 ## Features
 

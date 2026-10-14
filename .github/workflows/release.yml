@@ -133,3 +133,13 @@ jobs:
             flags+=(--prerelease --latest=false)
           fi
           gh release create "$RELEASE_TAG" release-assets/* "${flags[@]}"
+
+  homebrew:
+    name: Publish Homebrew cask
+    if: github.event_name == 'push' && needs.version.outputs.prerelease == 'false'
+    needs: [version, release]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/homebrew.yml
+    with:
+      tag: ${{ needs.version.outputs.tag }}

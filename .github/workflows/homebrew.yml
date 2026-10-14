@@ -1,0 +1,59 @@
+name: Update Homebrew cask
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Published stable release tag
+        required: true
+        type: string
+  # Retry a cask update without rebuilding or republishing the release.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable release tag (for example, v0.0.0)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: github.repository == 'fengmk2/projj-desktop'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Update the cask on main
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # Recompute against main if another release or a source change wins the push.
+          for attempt in 1 2 3; do
+            echo "Updating Homebrew cask (attempt ${attempt}/3)"
+            git fetch origin main
+            git checkout -B homebrew-update origin/main
+            node --test tests/homebrew.test.mjs
+            node scripts/update-homebrew.mjs "$RELEASE_TAG"
+            git diff --check
+            if git diff --quiet -- Casks/projj-desktop.rb; then
+              exit 0
+            fi
+            git add Casks/projj-desktop.rb
+            git commit -m "chore: update Homebrew cask to ${RELEASE_TAG}"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+          done
+          echo 'Could not push the cask update after three attempts.' >&2
+          exit 1

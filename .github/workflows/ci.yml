@@ -45,3 +45,48 @@ jobs:
         with:
           name: Projj-macOS
           path: dist/Projj-macOS.zip
+
+  homebrew:
+    name: Homebrew (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+      HOMEBREW_NO_ANALYTICS: '1'
+      HOMEBREW_NO_ASK: '1'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install from an independent tap checkout
+        run: |
+          # Model the former tap without depending on its archived GitHub repository.
+          legacy_tap="$RUNNER_TEMP/legacy-tap"
+          mkdir -p "$legacy_tap/Casks"
+          cp Casks/projj-desktop.rb "$legacy_tap/Casks/"
+          git -C "$legacy_tap" init -b main
+          git -C "$legacy_tap" add Casks/projj-desktop.rb
+          git -C "$legacy_tap" -c user.name=CI -c user.email=ci@example.com commit -m 'Legacy tap fixture'
+          brew tap fengmk2/tap "$legacy_tap"
+          brew install --cask fengmk2/tap/projj-desktop
+          stat -f '%i' /Applications/Projj.app > "$RUNNER_TEMP/projj-inode"
+      - name: Migrate to this repository without reinstalling
+        run: |
+          brew tap --custom-remote fengmk2/tap "$GITHUB_WORKSPACE"
+          brew update-reset "$(brew --repository fengmk2/tap)"
+          brew install --cask fengmk2/tap/projj-desktop
+          test "$(stat -f '%i' /Applications/Projj.app)" = "$(cat "$RUNNER_TEMP/projj-inode")"
+          test "$(git -C "$(brew --repository fengmk2/tap)" rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Verify the cask and installation
+        run: |
+          brew style --cask fengmk2/tap/projj-desktop
+          brew audit --cask fengmk2/tap/projj-desktop
+          test -d /Applications/Projj.app
+          codesign --verify --deep --strict /Applications/Projj.app
+          "$(brew --prefix)/bin/projj" --version
+      - name: Uninstall
+        run: brew uninstall --cask fengmk2/tap/projj-desktop
