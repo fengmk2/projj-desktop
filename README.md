@@ -2,6 +2,12 @@
 
 A native desktop home for your Git repositories, built with [gpui-shell](https://gpui-kit.com/shell/). The interface is JavaScript rendered by GPUI; the backend and bundled CLI share Projj's Rust core. There is no browser engine or Node.js runtime in the app.
 
+## Quick tour
+
+[![Projj Desktop walkthrough: search repositories, inspect Git status, run tasks, add a repository, and review settings](docs/media/projj-demo.gif)](docs/media/projj-demo.mp4)
+
+[Watch the 51-second video (MP4)](docs/media/projj-demo.mp4). This captioned walkthrough uses example repositories and has no audio. It shows repository search and details, tasks for one or all repositories, adding a local repository with a destination preview, automation hooks, and the shared CLI configuration.
+
 ## Run
 
 Requires Git, stable Rust (edition 2024), and Node.js 22+. Development and packaging scripts use Node.js built-ins and the platform's `curl` and `tar` tools; no npm dependencies need to be installed. Node.js is not needed to run a packaged app.
@@ -25,11 +31,11 @@ On macOS, open `dist/Projj.app` or copy it to `~/Applications`. On Linux, run `d
 
 ## Releases
 
-The [Release workflow](.github/workflows/release.yml) publishes a GitHub Release when a `v*` tag is pushed. The tag must match the package version in `Cargo.toml`. For example, with version `0.1.0`:
+The [Release workflow](.github/workflows/release.yml) publishes a GitHub Release when a `v*` tag is pushed. The tag must match the package version in `Cargo.toml`. For example, with version `0.0.0`:
 
 ```sh
-git tag -a v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
+git tag -a v0.0.0 -m "Release v0.0.0"
+git push origin v0.0.0
 ```
 
 For a new version, update `Cargo.toml`, run `cargo check` to update `Cargo.lock`, and commit both files before tagging. Packaging reads the Cargo version for the CLI, app manifest, and macOS bundle metadata. Tags such as `v0.2.0-rc.1` create prereleases.
