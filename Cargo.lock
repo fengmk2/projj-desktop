@@ -501,7 +501,7 @@ dependencies = [
 
 [[package]]
 name = "projj"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "anyhow",
  "assert_cmd",
