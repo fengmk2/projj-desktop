@@ -1,11 +1,14 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
+cargo build --bins
 node --input-type=module <<'JS'
 import { writeFileSync } from 'node:fs';
-writeFileSync('app/environment.js', 'export const projjHome = ' + JSON.stringify(process.env.PROJJ_HOME ?? null) + ';\n');
+import { packageVersion } from './scripts/tools.mjs';
+writeFileSync('app/environment.js',
+  'export const projjHome = ' + JSON.stringify(process.env.PROJJ_HOME ?? null) + ';\n' +
+  'export const appVersion = ' + JSON.stringify(packageVersion()) + ';\n');
 JS
-cargo build --bins
 mkdir -p app/bin
 cp target/debug/projj target/debug/projj-desktop-backend app/bin/
 export PATH="$PWD/app/bin:$PATH"

@@ -93,7 +93,10 @@ const manifestPath = join(app, "gpui-shell.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 manifest.version = version;
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
-writeFileSync(join(app, "environment.js"), "export const projjHome = null;\n");
+writeFileSync(
+  join(app, "environment.js"),
+  `export const projjHome = null;\nexport const appVersion = ${JSON.stringify(version)};\n`,
+);
 mkdirSync(join(app, "bin"));
 for (const binary of ["projj", "projj-desktop-backend"]) {
   copyExecutable(

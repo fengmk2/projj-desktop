@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { ensureRuntime } from "./runtime.mjs";
-import { root } from "./tools.mjs";
+import { packageVersion, root } from "./tools.mjs";
 
 const runtime = resolve(process.env.GPUI_SHELL || ensureRuntime());
 const repo = {
@@ -49,6 +49,10 @@ const states = {
   hooks: 'this.page="hooks";',
   settings: 'this.page="settings";',
   repair: 'this.data=null;this.page="settings";this.error="Invalid TOML";',
+  about: 'this.modal="about";',
+  "about-unavailable": 'this.data=null;this.modal="about";this.error="Invalid TOML";',
+  "about-loading": 'this.data=null;this.modal="about";this.busy=true;',
+  "about-dark": 'this.modal="about";this.dark=true;applyTheme(true);',
   add: 'this.modal="add";',
   preview:
     'this.modal="add";this.preview={target:"/test/github.com/acme/project",exists:false};',
@@ -67,7 +71,7 @@ try {
   });
   writeFileSync(
     join(app, "environment.js"),
-    `export const projjHome=${JSON.stringify(join(temporary, "home"))};\n`,
+    `export const projjHome=${JSON.stringify(join(temporary, "home"))};\nexport const appVersion=${JSON.stringify(packageVersion())};\n`,
   );
   const manifestPath = join(app, "gpui-shell.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));

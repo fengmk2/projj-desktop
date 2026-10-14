@@ -38,6 +38,8 @@ To uninstall, run `brew uninstall --cask fengmk2/projj-desktop/app`. Your `~/.pr
 
 Download a package for macOS or Linux from [GitHub Releases](https://github.com/fengmk2/projj-desktop/releases/latest). The macOS app uses an ad-hoc signature and is not notarized. If macOS blocks the first launch, use **System Settings → Privacy & Security → Open Anyway** after reviewing the downloaded app. This also applies to Homebrew installs.
 
+To view the installed version in the desktop app, click **About Projj** at the bottom of the sidebar. Use **Copy version** to include it in a bug report.
+
 ## Run from source
 
 Requires Git, stable Rust (edition 2024), and Node.js 22+. Development and packaging scripts use Node.js built-ins and the platform's `curl` and `tar` tools; no npm dependencies need to be installed. Node.js is not needed to run a packaged app.
@@ -68,7 +70,7 @@ git tag -a v1.0.0 -m "Release v1.0.0"
 git push origin v1.0.0
 ```
 
-For a new version, update `Cargo.toml`, run `cargo check` to update `Cargo.lock`, and commit both files before tagging. Packaging reads the Cargo version for the CLI, app manifest, and macOS bundle metadata. Tags such as `v0.2.0-rc.1` create prereleases.
+For a new version, update `Cargo.toml`, run `cargo check` to update `Cargo.lock`, and commit both files before tagging. Packaging reads the Cargo version for the CLI, About dialog, app manifest, and macOS bundle metadata. Tags such as `v0.2.0-rc.1` create prereleases.
 
 The workflow tests and builds on each target before publishing:
 

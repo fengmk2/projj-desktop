@@ -2,6 +2,7 @@ import { View, div, uniform_list } from "gpui-kit";
 import { h_flex, v_flex, InputState, TextareaState } from "gpui-base";
 import { TitleBar } from "gpui-component";
 import { request } from "./backend.js";
+import { appVersion } from "./environment.js";
 import { applyTheme } from "./theme.js";
 import {
   filterRepos,
@@ -267,7 +268,7 @@ export default class Projj extends View {
       this.saveConfig(cx);
       cx.stop_propagation();
     }
-    if (event.keystroke === "escape" && !this.busy) {
+    if (event.keystroke === "escape" && (!this.busy || this.modal === "about")) {
       this.modal = null;
       cx.notify();
     }
@@ -470,6 +471,12 @@ export default class Projj extends View {
             cx.notify();
           },
         ),
+      )
+      .child(
+        button("about", "About Projj", cx, (cx) => {
+          this.modal = "about";
+          cx.notify();
+        }),
       );
   }
   /** @returns {import("gpui-kit").NativeElement} */
@@ -1366,7 +1373,23 @@ export default class Projj extends View {
       description = "",
       body = v_flex().gap(14),
       confirm = null;
-    if (this.modal === "add") {
+    if (this.modal === "about") {
+      title = "About Projj";
+      description = "A home for every repository.";
+      body.child(
+        row()
+          .py(12)
+          .child(div().text_color(c.primary).child(icon("branch", 32)))
+          .child(text(`Version ${appVersion}`, 22).font_weight(600)),
+      );
+      confirm = button(
+        "copy-version",
+        "Copy version",
+        cx,
+        (cx) => this.copy(`Projj Desktop ${appVersion}`, cx),
+        { icon: "copy" },
+      );
+    } else if (this.modal === "add") {
       title = "Add a repository";
       description =
         "Clone a remote repository, or move a local repository into your workspace.";
@@ -1528,7 +1551,7 @@ export default class Projj extends View {
       .on_mouse_down("left", (_, cx) => cx.stop_propagation())
       .child(
         v_flex()
-          .w(610)
+          .w(this.modal === "about" ? 420 : 610)
           .max_h("90%")
           .p(28)
           .gap(18)
@@ -1540,7 +1563,7 @@ export default class Projj extends View {
           .child(text(title, 25).font_weight(600))
           .child(muted(description, cx, 13))
           .child(body)
-          .when(!!this.error, (el) =>
+          .when(!!this.error && this.modal !== "about", (el) =>
             el.child(text(this.error, 12, c.destructive)),
           )
           .child(
@@ -1549,13 +1572,13 @@ export default class Projj extends View {
               .child(
                 button(
                   "cancel-dialog",
-                  "Cancel",
+                  this.modal === "about" ? "Close" : "Cancel",
                   cx,
                   (cx) => {
                     this.modal = null;
                     cx.notify();
                   },
-                  { disabled: this.busy },
+                  { disabled: this.busy && this.modal !== "about" },
                 ),
               )
               .when(!!confirm, (el) => el.child(confirm)),
