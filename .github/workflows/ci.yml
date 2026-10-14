@@ -64,6 +64,8 @@ jobs:
           persist-credentials: false
       - name: Install from an independent tap checkout
         run: |
+          # A pull request checkout has a detached HEAD; Homebrew needs a default branch.
+          git switch --create homebrew-ci
           # Model the former tap without depending on its archived GitHub repository.
           legacy_tap="$RUNNER_TEMP/legacy-tap"
           mkdir -p "$legacy_tap/Casks"
