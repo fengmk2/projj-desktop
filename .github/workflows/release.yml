@@ -26,27 +26,15 @@ jobs:
       prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
         with:
-          python-version: '3.12'
+          node-version: '22'
       - name: Check tag against Cargo.toml
         id: version
         env:
           RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-        run: |
-          python3 - <<'PY'
-          import os, re, tomllib
-          from pathlib import Path
-
-          version = tomllib.loads(Path('Cargo.toml').read_text())['package']['version']
-          if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?', version):
-              raise SystemExit('Release versions must be X.Y.Z or X.Y.Z-prerelease')
-          tag = f'v{version}'
-          if os.environ['RELEASE_TAG'] and os.environ['RELEASE_TAG'] != tag:
-              raise SystemExit(f'Tag must match Cargo.toml: expected {tag}')
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write(f'tag={tag}\nprerelease={str("-" in version).lower()}\n')
-          PY
+        run: node scripts/release-version.mjs
 
   build:
     name: Package (${{ matrix.target }})
@@ -72,9 +60,6 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -89,9 +74,9 @@ jobs:
           cargo fmt --all --check
           cargo clippy --all-targets --locked -- -D warnings
           cargo test --all-features --locked
-          node --test tests/model.test.mjs
+          npm test
       - name: Build standalone package
-        run: python3 scripts/package.py
+        run: npm run package
       - name: Verify and archive package
         run: |
           mkdir -p release-assets

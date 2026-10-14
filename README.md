@@ -4,12 +4,12 @@ A native desktop home for your Git repositories, built with [gpui-shell](https:/
 
 ## Run
 
-Requires Git, stable Rust (edition 2024), and Python 3.9+. Node.js is only needed for the JavaScript tests.
+Requires Git, stable Rust (edition 2024), and Node.js 22+. Development and packaging scripts use Node.js built-ins and the platform's `curl` and `tar` tools; no npm dependencies need to be installed. Node.js is not needed to run a packaged app.
 
 ```sh
 git clone https://github.com/fengmk2/projj-desktop.git
 cd projj-desktop
-python3 scripts/runtime.py
+npm run runtime
 scripts/dev.sh
 ```
 
@@ -18,7 +18,7 @@ The downloader pins gpui-shell `0.7.3` and verifies the official archive's SHA-2
 Build a standalone app:
 
 ```sh
-python3 scripts/package.py
+npm run package
 ```
 
 On macOS, open `dist/Projj.app` or copy it to `~/Applications`. On Linux, run `dist/projj-desktop/projj-desktop`. The bundle includes the runtime, scripts, Rust backend, and full `projj` CLI. Git and any tools your tasks use remain system dependencies. The macOS build uses an ad-hoc signature; distribution with a Developer ID and notarization requires your own Apple signing credentials.
@@ -107,9 +107,9 @@ The platform modifier follows gpui-shell's native keyboard mapping.
 cargo test --all-features
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all --check
-node --test tests/model.test.mjs
+npm test
 scripts/dev.sh check
-python3 scripts/check-ui.py
+npm run check:ui
 ```
 
 The Rust tests cover the shared core, CLI interactions, and desktop operations against temporary directories and local Git remotes. Desktop tests include clone/move, hook order and failures, typed removal, shell integration, cleanup, literal arguments, batch filtering, job cancellation, stale process IDs, and gpui-shell's empty child environment. The UI checker materializes every screen and dialog with a test view that cannot execute backend operations. Also test behavioral changes in a live window; a one-frame check does not prove interaction or layout behavior.

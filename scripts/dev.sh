@@ -1,10 +1,10 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-python3 - <<'PYENV'
-import json, os, pathlib
-pathlib.Path('app/environment.js').write_text('export const projjHome = ' + json.dumps(os.environ.get('PROJJ_HOME')) + ';\n')
-PYENV
+node --input-type=module <<'JS'
+import { writeFileSync } from 'node:fs';
+writeFileSync('app/environment.js', 'export const projjHome = ' + JSON.stringify(process.env.PROJJ_HOME ?? null) + ';\n');
+JS
 cargo build --bins
 mkdir -p app/bin
 cp target/debug/projj target/debug/projj-desktop-backend app/bin/
@@ -14,7 +14,7 @@ if [ -z "$shell_bin" ]; then
   shell_bin=$(command -v gpui-shell || true)
 fi
 if [ -z "$shell_bin" ]; then
-  shell_bin=$(python3 scripts/runtime.py)
+  shell_bin=$(node scripts/runtime.mjs)
 fi
 if [ "${1:-}" = check ]; then
   exec "$shell_bin" check -d app

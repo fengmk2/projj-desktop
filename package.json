@@ -3,9 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "test": "node --test tests/model.test.mjs",
+    "test": "node --test tests/*.test.mjs",
     "dev": "scripts/dev.sh",
-    "check:ui": "python3 scripts/check-ui.py"
+    "runtime": "node scripts/runtime.mjs",
+    "package": "node scripts/package.mjs",
+    "check:ui": "node scripts/check-ui.mjs"
   }
 }
