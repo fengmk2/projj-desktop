@@ -51,6 +51,20 @@ export function parseArgs(source) {
   if (started) args.push(token);
   return args;
 }
+export function buildRunRequest({ task, args, scope, selected, pattern, cwd }) {
+  task = task.trim();
+  if (!task) throw new Error("Enter a task or shell command.");
+  const request = { operation: "run", task, args: parseArgs(args) };
+  if (scope === "all") return { ...request, all: true, pattern };
+  if (scope === "directory") {
+    cwd = cwd.trim();
+    if (!cwd.startsWith("/"))
+      throw new Error("Enter an absolute working directory.");
+    return { ...request, cwd };
+  }
+  if (!selected) throw new Error("Select a repository in the library first.");
+  return { ...request, path: selected };
+}
 export const shortPath = (path) =>
   path.split("/").filter(Boolean).slice(-2).join("/");
 export const stripAnsi = (text) =>

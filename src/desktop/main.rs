@@ -324,6 +324,7 @@ fn dispatch(req: &Value) -> Result<Value> {
             )
         }
         "job.start" => start_job(req),
+        "run.preview" => preview_run(req),
         "run.terminal" => run_in_terminal(req),
         "job.poll" => poll_job(string(req, "id")?),
         "job.cancel" => cancel_job(string(req, "id")?),
@@ -367,8 +368,7 @@ fn dispatch(req: &Value) -> Result<Value> {
 }
 fn run_in_terminal(req: &Value) -> Result<Value> {
     let cfg = load()?;
-    run_targets(req, &cfg)?;
-    task_script(req, &cfg)?;
+    validate_run(req, &cfg)?;
     let dir = config::config_dir().join("desktop/terminal");
     fs::create_dir_all(&dir)?;
     let path = dir.join(format!(
@@ -501,8 +501,7 @@ fn start_job(req: &Value) -> Result<Value> {
             }
         }
         "run" => {
-            run_targets(req, &cfg)?;
-            task_script(req, &cfg)?;
+            validate_run(req, &cfg)?;
         }
         _ => bail!("Unsupported operation"),
     }
@@ -613,6 +612,9 @@ fn run_targets(req: &Value, cfg: &Config) -> Result<Vec<PathBuf>> {
             .collect())
     } else if req["cwd"].as_str().is_some_and(|s| !s.is_empty()) {
         let path = PathBuf::from(string(req, "cwd")?);
+        if !path.is_absolute() {
+            bail!("Enter an absolute working directory");
+        }
         if !path.is_dir() {
             bail!("Working directory does not exist");
         }
@@ -620,6 +622,17 @@ fn run_targets(req: &Value, cfg: &Config) -> Result<Vec<PathBuf>> {
     } else {
         Ok(vec![selected(req, cfg)?.path])
     }
+}
+fn preview_run(req: &Value) -> Result<Value> {
+    let targets = run_targets(req, &load()?)?;
+    Ok(json!({"total":targets.len(),"paths":targets.iter().take(3).collect::<Vec<_>>()}))
+}
+fn validate_run(req: &Value, cfg: &Config) -> Result<()> {
+    if run_targets(req, cfg)?.is_empty() {
+        bail!("No repositories match this filter");
+    }
+    task_script(req, cfg)?;
+    Ok(())
 }
 fn perform(req: &Value) -> Result<Value> {
     let cfg = load()?;

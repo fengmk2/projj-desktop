@@ -42,6 +42,13 @@ const states = {
   library: "",
   details: `this.selected=${JSON.stringify(repo.path)};this.detail={status:"## main\\n M README.md"};`,
   tasks: 'this.page="tasks";',
+  "tasks-all": `this.page="tasks";this.scope="all";this.runPreview={total:4,paths:[${JSON.stringify(repo.path)},"/test/gitlab.com/team/two","/test/github.com/team/three"]};`,
+  "tasks-all-loading": 'this.page="tasks";this.scope="all";',
+  "tasks-all-empty":
+    'this.page="tasks";this.scope="all";this.runPreview={total:0,paths:[]};',
+  "tasks-all-invalid":
+    'this.page="tasks";this.scope="all";this.runPreviewError="Invalid match expression";',
+  "tasks-directory": 'this.page="tasks";this.scope="directory";',
   "active-job":
     'this.page="tasks";this.jobs=[{id:"example",state:"running",started:1,operation:"run",label:"status",log:"Hello\\nWorld"}];',
   "failed-job":
@@ -85,6 +92,7 @@ import {applyTheme} from "./theme.js";
 export default class Check extends Projj {
   refresh() {}
   poll() {}
+  previewRun() {}
   init(props,cx) { super.init(props,cx); this.accept(${JSON.stringify(data)}); ${setup} }
 }
 `,

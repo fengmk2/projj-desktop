@@ -107,6 +107,17 @@ gh workflow run homebrew.yml --repo fengmk2/projj-desktop -f tag=v1.0.0
 
 The [CLI reference](docs/CLI.md) describes the original commands, configuration, built-ins, and environment variables. The repository retains upstream history and its tests.
 
+### Run a command in all repositories
+
+1. In **Repositories**, click **Run on all repositories**. You can also open **Tasks & activity** and choose **All repositories** under **Run in**.
+2. Enter a saved task name, such as `status`, or a shell command, such as `git status --short`.
+3. Leave the repository filter empty to include every configured base directory, or enter a regex to match `host/owner/repo`, as with CLI `--match`. The preview shows the matching count and sample repositories.
+4. Click **Run in N repositories**. Use **Run in Terminal** for commands that need interactive input.
+
+This provides the desktop equivalent of `projj run 'git status --short' --all`. Each repository runs the command in its own working directory. Output identifies each repository, failures do not stop the remaining runs, and the final status reports failures. Library search, host, and base-directory filters do not restrict **All repositories**.
+
+Use **Arguments** for extra arguments (the CLI's `--` arguments). Choose **Selected repo** for one repository, or **Directory** for a custom working directory. Invalid regexes and filters with no matches prevent execution.
+
 ## Data and permissions
 
 The app reads the same `~/.projj/config.toml` and `~/.projj/tasks/` as the CLI. Repositories remain ordinary directories; no catalog database or migration is required. Refresh picks up external filesystem and configuration changes.

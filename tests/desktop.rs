@@ -143,6 +143,126 @@ fn task_arguments_batch_filter_failures_and_cancel() {
     assert!(!one.join("SHOULD_NOT_EXIST").exists());
 }
 #[test]
+fn batch_preview_and_execution_match_cli_across_roots_and_namespaces() {
+    let app = App::new();
+    let second = app.temp.path().join("second root");
+    app.ok(json!({"method":"init","content":format!("base = [{:?}, {:?}]\n[tasks]\nrecord = 'touch inline-task'\n", app.base, second)}));
+    let paths = [
+        app.repo("first"),
+        app.base.join("gitlab.com/team/nested/one"),
+        second.join("gitlab.com/team/two"),
+        second.join("gitlab.com/team/three"),
+    ];
+    for path in &paths[1..] {
+        git(path, &["init", "-q"]);
+    }
+    let preview = app.ok(json!({"method":"run.preview","all":true}));
+    assert_eq!(preview["total"], 4);
+    assert_eq!(preview["paths"].as_array().unwrap().len(), 3);
+
+    // Inline flags and nested namespaces must use the CLI's Rust regex syntax.
+    let pattern = r"(?i)^GITLAB\.COM/team/";
+    let preview = app.ok(json!({"method":"run.preview","all":true,"pattern":pattern}));
+    let mut expected = paths[1..].to_vec();
+    expected.sort();
+    assert_eq!(preview, json!({"total":3,"paths":expected}));
+    let cli = Command::new(env!("CARGO_BIN_EXE_projj"))
+        .args(["run", "touch cli-matched", "--all", "--match", pattern])
+        .env("PROJJ_HOME", app.temp.path())
+        .output()
+        .unwrap();
+    assert!(cli.status.success(), "{cli:?}");
+    let job = app.job(
+        json!({"operation":"run","all":true,"pattern":pattern,"task":"touch desktop-matched"}),
+    );
+    assert_eq!(job["data"], json!({"total":3,"failed":0}));
+    for (index, path) in paths.iter().enumerate() {
+        assert_eq!(path.join("cli-matched").exists(), index > 0);
+        assert_eq!(path.join("desktop-matched").exists(), index > 0);
+    }
+
+    // The config task takes precedence over a task file with the same name.
+    app.ok(json!({"method":"task.save","name":"record","content":"#!/bin/sh\ntouch file-task\n","previous":""}));
+    let job = app.job(json!({"operation":"run","all":true,"task":"record"}));
+    assert_eq!(job["data"], json!({"total":4,"failed":0}));
+    for path in &paths {
+        assert!(path.join("inline-task").exists());
+        assert!(!path.join("file-task").exists());
+    }
+
+    // Terminal execution uses the same targets and executable task files.
+    app.ok(json!({"method":"task.save","name":"record-file","content":"#!/bin/sh\nprintf '%s\\n' \"$@\" > terminal-args\n","previous":""}));
+    let terminal = Command::new(env!("CARGO_BIN_EXE_projj-desktop-backend"))
+        .arg("terminal-worker")
+        .arg(json!({"operation":"run","all":true,"pattern":pattern,"task":"record-file","args":["hello world","$(touch HACKED)"]}).to_string())
+        .env("PROJJ_HOME", app.temp.path())
+        .output()
+        .unwrap();
+    assert!(terminal.status.success(), "{terminal:?}");
+    assert!(!paths[0].join("terminal-args").exists());
+    for path in &paths[1..] {
+        assert_eq!(
+            fs::read_to_string(path.join("terminal-args")).unwrap(),
+            "hello world\n$(touch HACKED)\n"
+        );
+        assert!(!path.join("HACKED").exists());
+    }
+
+    fs::write(paths[0].join("fail"), "").unwrap();
+    let job = app.job(json!({"operation":"run","all":true,"task":"if [ -f fail ]; then exit 7; fi; touch continued"}));
+    assert_eq!(job["state"], "failed");
+    assert!(
+        job["log"]
+            .as_str()
+            .unwrap()
+            .contains("Finished 4 repositories; 1 failed.")
+    );
+    assert!(!paths[0].join("continued").exists());
+    for path in &paths[1..] {
+        assert!(path.join("continued").exists());
+    }
+}
+#[test]
+fn invalid_batch_targets_are_rejected_before_starting_jobs_or_terminal() {
+    let app = App::new();
+    app.init();
+    let repo = app.repo("one");
+    assert_eq!(
+        app.ok(json!({"method":"run.preview","all":true,"pattern":"/missing$"})),
+        json!({"total":0,"paths":[]})
+    );
+    assert_eq!(
+        app.call(json!({"method":"run.preview","all":true,"pattern":"["}))["ok"],
+        false
+    );
+    for method in ["job.start", "run.terminal"] {
+        for (pattern, message) in [
+            ("[", "Invalid match expression"),
+            ("/missing$", "No repositories match"),
+        ] {
+            let result = app.call(json!({"method":method,"operation":"run","all":true,"pattern":pattern,"task":"touch SHOULD_NOT_EXIST"}));
+            assert_eq!(result["ok"], false);
+            assert!(result["error"].as_str().unwrap().contains(message));
+        }
+        let result = app.call(json!({"method":method,"operation":"run","cwd":"relative/path","path":repo,"task":"touch SHOULD_NOT_EXIST"}));
+        assert_eq!(result["ok"], false);
+        assert!(
+            result["error"]
+                .as_str()
+                .unwrap()
+                .contains("absolute working directory")
+        );
+    }
+    assert!(!repo.join("SHOULD_NOT_EXIST").exists());
+    assert!(
+        app.ok(json!({"method":"snapshot"}))["jobs"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(!app.temp.path().join(".projj/desktop/terminal").exists());
+}
+#[test]
 #[allow(clippy::format_push_string)]
 fn local_move_hooks_and_confirmed_removal() {
     let app = App::new();

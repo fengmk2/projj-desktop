@@ -6,7 +6,7 @@ import { appVersion } from "./environment.js";
 import { applyTheme } from "./theme.js";
 import {
   filterRepos,
-  parseArgs,
+  buildRunRequest,
   shortPath,
   stripAnsi,
   defaultConfig,
@@ -59,6 +59,9 @@ export default class Projj extends View {
     this.configPrevious = "";
     this.configEditor.on("change", (_, cx) => cx.notify());
     this.scope = "selected";
+    this.runPreview = null;
+    this.runPreviewError = "";
+    this.runPreviewId = 0;
     this.addBase = "";
     this.preview = null;
     this.shell = "zsh";
@@ -71,6 +74,7 @@ export default class Projj extends View {
     const state = InputState.new({ placeholder, value });
     state.on("change", (_, cx) => {
       if (state === this.source) this.preview = null;
+      if (state === this.pattern) this.previewRun(cx);
       cx.notify();
     });
     return state;
@@ -110,8 +114,9 @@ export default class Projj extends View {
     }
   }
   refresh(cx) {
-    this.action(cx, async () => {
+    this.action(cx, async (cx) => {
       this.accept(await request("snapshot"));
+      this.previewRun(cx);
     });
   }
   poll(cx) {
@@ -126,7 +131,10 @@ export default class Projj extends View {
           this.jobs = this.jobs.map((j) => (j.id === next.id ? next : j));
           if (next.state !== "running") finished = true;
         }
-        if (finished) this.accept(await request("snapshot"));
+        if (finished) {
+          this.accept(await request("snapshot"));
+          this.previewRun(cx);
+        }
       } catch (error) {
         this.error = `Could not refresh job status: ${error.message || error}`;
       } finally {
@@ -138,7 +146,29 @@ export default class Projj extends View {
   navigate(page, cx) {
     this.page = page;
     this.error = "";
+    this.previewRun(cx);
     cx.notify();
+  }
+  previewRun(cx) {
+    const id = ++this.runPreviewId;
+    this.runPreview = null;
+    this.runPreviewError = "";
+    if (this.page !== "tasks" || this.scope !== "all") return;
+    const pattern = this.pattern.value();
+    cx.timer.after(200, (cx) => {
+      if (id !== this.runPreviewId) return;
+      cx.spawn(async (cx) => {
+        try {
+          const result = await request("run.preview", { all: true, pattern });
+          if (id !== this.runPreviewId) return;
+          this.runPreview = result;
+        } catch (error) {
+          if (id !== this.runPreviewId) return;
+          this.runPreviewError = String(error.message || error);
+        }
+        cx.notify();
+      });
+    });
   }
   selectedRepo() {
     return this.data?.repos.find((r) => r.path === this.selected);
@@ -186,22 +216,26 @@ export default class Projj extends View {
     this.modal = null;
   }
   runRequest() {
-    return {
-      operation: "run",
+    const req = buildRunRequest({
       task: this.taskName.value().trim(),
-      args: parseArgs(this.args.value()),
-      all: this.scope === "all",
+      args: this.args.value(),
+      scope: this.scope,
       pattern: this.pattern.value(),
-      path: this.selected,
-      cwd: this.scope === "directory" ? this.cwd.value() : "",
-    };
+      selected: this.selected,
+      cwd: this.cwd.value(),
+    });
+    if (req.all && !this.runPreview?.total)
+      throw new Error(
+        this.runPreviewError ||
+          (this.runPreview
+            ? "No repositories match this filter."
+            : "Wait for the repository preview to finish."),
+      );
+    return req;
   }
   runTask(cx, confirmed = false) {
     try {
       const req = this.runRequest();
-      if (!req.task) throw new Error("Enter a task or command.");
-      if (this.scope === "selected" && !this.selected)
-        throw new Error("Select a repository first, or choose another scope.");
       if (!confirmed && req.task === "clean" && req.args.includes("--force")) {
         this.modal = "clean";
         cx.notify();
@@ -614,10 +648,32 @@ export default class Projj extends View {
           "Repositories",
           "All your projects, exactly where they belong.",
           cx,
-          button("add-repo", "Add repository", cx, (cx) => this.showAdd(cx), {
-            primary: true,
-            icon: "plus",
-          }),
+          row()
+            .child(
+              button(
+                "run-all",
+                "Run on all repositories",
+                cx,
+                (cx) => {
+                  this.scope = "all";
+                  this.pattern.set_value("");
+                  this.navigate("tasks", cx);
+                },
+                { icon: "play", disabled: !repos.length },
+              ),
+            )
+            .child(
+              button(
+                "add-repo",
+                "Add repository",
+                cx,
+                (cx) => this.showAdd(cx),
+                {
+                  primary: true,
+                  icon: "plus",
+                },
+              ),
+            ),
         ),
       )
       .child(
@@ -853,12 +909,10 @@ export default class Projj extends View {
       )
       .child(
         button(
-          "run-status",
-          "Run status task",
+          "run-repo-command",
+          "Run command",
           cx,
           (cx) => {
-            this.taskName.set_value("status");
-            this.args.set_value("");
             this.scope = "selected";
             this.navigate("tasks", cx);
           },
@@ -893,12 +947,25 @@ export default class Projj extends View {
     const c = cx.theme().colors,
       active = this.jobs.find((j) => j.id === this.activeJob) || this.jobs[0],
       repo = this.selectedRepo();
-    let targetLabel =
+    const targetLabel =
       this.scope === "all"
-        ? `${this.data.repos.length} repositories before filtering`
+        ? this.runPreviewError ||
+          (this.runPreview
+            ? this.runPreview.total
+              ? `${this.runPreview.total} matching ${this.runPreview.total === 1 ? "repository" : "repositories"}`
+              : "No repositories match this filter."
+            : "Checking repositories…")
         : this.scope === "directory"
           ? "Custom working directory"
           : repo?.shortKey || "Select a repository in the library";
+    const canRun =
+      !this.busy &&
+      !!this.taskName.value().trim() &&
+      (this.scope === "all"
+        ? !!this.runPreview?.total
+        : this.scope === "directory"
+          ? !!this.cwd.value().trim()
+          : !!repo);
     return v_flex()
       .flex_1()
       .min_h(0)
@@ -926,44 +993,98 @@ export default class Projj extends View {
               .gap(13)
               .id("runner-scroll")
               .overflow_y_scroll()
-              .child(labelField("Task or shell command", this.taskName, cx))
-              .child(
-                labelField(
-                  "Arguments",
-                  this.args,
-                  cx,
-                  "Quotes group arguments. Shell expansion is disabled here.",
-                ),
-              )
+              .child(text("Run in", 14).font_weight(600))
               .child(
                 row().children(
                   [
-                    ["selected", "Selected"],
-                    ["all", "All repos"],
+                    ["selected", "Selected repo"],
+                    ["all", "All repositories"],
                     ["directory", "Directory"],
                   ].map(([id, label]) =>
                     button(`scope-${id}`, label, cx, (cx) => {
                       this.scope = id;
+                      this.previewRun(cx);
                       cx.notify();
-                    }).bg(this.scope === id ? c.accent : c.secondary),
+                    })
+                      .selected(this.scope === id)
+                      .px(9)
+                      .bg(this.scope === id ? c.accent : c.secondary)
+                      .text_color(this.scope === id ? c.primary : c.foreground),
                   ),
                 ),
               )
-              .child(muted(targetLabel, cx))
               .when(this.scope === "all", (el) =>
                 el.child(
-                  labelField("Match repository (regex)", this.pattern, cx),
+                  labelField(
+                    "Repository filter (optional regex)",
+                    this.pattern,
+                    cx,
+                    "Leave empty to run in every configured repository.",
+                  ),
                 ),
               )
               .when(this.scope === "directory", (el) =>
                 el.child(labelField("Working directory", this.cwd, cx)),
               )
               .child(
-                button("run-task", "Run task", cx, (cx) => this.runTask(cx), {
-                  primary: true,
-                  icon: "play",
-                  disabled: this.busy,
-                }),
+                muted(targetLabel, cx)
+                  .whitespace_normal()
+                  .when(!!this.runPreviewError, (el) =>
+                    el.text_color(c.destructive),
+                  ),
+              )
+              .when(this.scope === "all" && !!this.runPreview?.total, (el) =>
+                el.child(
+                  v_flex()
+                    .gap(4)
+                    .children(
+                      this.runPreview.paths.map((path) =>
+                        muted(shortPath(path), cx, 11).truncate().tooltip(path),
+                      ),
+                    )
+                    .when(
+                      this.runPreview.total > this.runPreview.paths.length,
+                      (el) =>
+                        el.child(
+                          muted(
+                            `…and ${this.runPreview.total - this.runPreview.paths.length} more`,
+                            cx,
+                            11,
+                          ),
+                        ),
+                    ),
+                ),
+              )
+              .child(
+                labelField(
+                  "Task or shell command",
+                  this.taskName,
+                  cx,
+                  "For example: status or git status --short.",
+                ),
+              )
+              .child(
+                labelField(
+                  "Arguments",
+                  this.args,
+                  cx,
+                  "Quotes group arguments. No shell expansion.",
+                ),
+              )
+              .child(
+                button(
+                  "run-task",
+                  this.scope === "all" && this.runPreview?.total
+                    ? `Run in ${this.runPreview.total} ${this.runPreview.total === 1 ? "repository" : "repositories"}`
+                    : "Run command",
+                  cx,
+                  (cx) => this.runTask(cx),
+                  {
+                    primary: true,
+                    icon: "play",
+                    disabled: !canRun,
+                  },
+                ),
               )
               .child(
                 button(
@@ -976,7 +1097,7 @@ export default class Projj extends View {
                       this.notice = "Task opened in Terminal";
                     });
                   },
-                  { icon: "terminal", disabled: this.busy },
+                  { icon: "terminal", disabled: !canRun },
                 ),
               )
               .child(muted("SAVED TASKS", cx, 10).mt(12))
@@ -1109,7 +1230,7 @@ export default class Projj extends View {
                       .children(
                         stripAnsi(
                           active?.log ||
-                            "Task output will appear here.\n\nChoose a task and a scope, then press Run task.",
+                            "Command output will appear here.\n\nChoose All repositories to run the same command across your workspace. Each repository has its own output, and a failure does not stop the remaining repositories.",
                         )
                           .split("\n")
                           .map((line) =>
