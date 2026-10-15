@@ -254,12 +254,7 @@ fn invalid_batch_targets_are_rejected_before_starting_jobs_or_terminal() {
         );
     }
     assert!(!repo.join("SHOULD_NOT_EXIST").exists());
-    assert!(
-        app.ok(json!({"method":"snapshot"}))["jobs"]
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
+    assert_eq!(app.ok(json!({"method":"snapshot"}))["jobs"], json!([]));
     assert!(!app.temp.path().join(".projj/desktop/terminal").exists());
 }
 #[test]
